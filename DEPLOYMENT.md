@@ -26,15 +26,35 @@
    pip install -r requirements.txt
    ```
 
+Пакет лежит в `src/`, поэтому для запуска модуля нужен **PYTHONPATH=src**
+
 ## Запуск скачивания
 
-Из корня проекта:
+Из корня проекта.
 
+**macOS/Linux:**
 ```bash
-python -m crawler run --input data/urls.txt --out output/pages --index output/index.txt --limit 100 --concurrency 10
+PYTHONPATH=src python -m crawler run --input data/urls.txt --out output/pages --index output/index.txt --limit 100
+```
+
+**Windows PowerShell:**
+```powershell
+$env:PYTHONPATH="src"; python -m crawler run --input data/urls.txt --out output/pages --index output/index.txt --limit 100
 ```
 
 - Список URL должен лежать в `data/urls.txt` (один URL на строку).
+
+## Проверка результата
+
+**macOS/Linux:**
+```bash
+PYTHONPATH=src python -m crawler validate --pages output/pages --index output/index.txt --min-pages 100
+```
+
+**Windows PowerShell:**
+```powershell
+$env:PYTHONPATH="src"; python -m crawler validate --pages output/pages --index output/index.txt --min-pages 100
+```
 
 ## Где хранится результат
 
@@ -47,16 +67,14 @@ python -m crawler run --input data/urls.txt --out output/pages --index output/in
 
 ## Сборка архива
 
+**macOS/Linux:**
 ```bash
-python -m crawler package --out output/submission.zip --pages output/pages --index output/index.txt
+PYTHONPATH=src python -m crawler package --pages output/pages --index output/index.txt --out output/submission.zip
+```
+
+**Windows PowerShell:**
+```powershell
+$env:PYTHONPATH="src"; python -m crawler package --pages output/pages --index output/index.txt --out output/submission.zip
 ```
 
 Архив `output/submission.zip` будет содержать каталог `pages/` с HTML и файл `index.txt` в корне архива.
-
-Если не указать `--pages` и `--index`, по умолчанию используются `output/pages` и `output/index.txt`:
-
-```bash
-python -m crawler package --out output/submission.zip
-```
-
-Для подробного вывода при отладке добавьте к команде флаг `--verbose`.
