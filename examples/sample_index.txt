@@ -1,0 +1,3 @@
+0001.html	https://example.com/page1
+0002.html	https://example.com/page2
+0003.html	https://example.com/page3
