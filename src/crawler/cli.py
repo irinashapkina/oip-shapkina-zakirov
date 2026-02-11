@@ -3,6 +3,7 @@ import sys
 from pathlib import Path
 
 from .run import run as run_crawler
+from .validate import validate as validate_crawler
 
 
 def _cmd_run(args: argparse.Namespace) -> int:
@@ -15,10 +16,13 @@ def _cmd_run(args: argparse.Namespace) -> int:
     )
 
 
-def _cmd_validate(_args: argparse.Namespace) -> int:
-    """Подкоманда validate: проверка данных (заглушка)."""
-    print("Not implemented")
-    return 0
+def _cmd_validate(args: argparse.Namespace) -> int:
+    """Подкоманда validate: проверка индекса и каталога страниц."""
+    return validate_crawler(
+        pages_dir=Path(args.pages),
+        index_path=Path(args.index),
+        min_pages=args.min_pages,
+    )
 
 
 def _cmd_package(_args: argparse.Namespace) -> int:
@@ -40,7 +44,10 @@ def _build_parser() -> argparse.ArgumentParser:
     run_parser.add_argument("--out", required=True, help="каталог для сохранения страниц (0001.html, …)")
     run_parser.add_argument("--index", required=True, help="файл индекса (filename<TAB>url)")
     run_parser.add_argument("--limit", type=int, default=100, help="нужное число успешных скачиваний (по умолчанию: 100)")
-    subparsers.add_parser("validate", help="проверить конфигурацию/данные")
+    validate_parser = subparsers.add_parser("validate", help="проверить индекс и страницы")
+    validate_parser.add_argument("--pages", required=True, help="каталог со страницами (0001.html, …)")
+    validate_parser.add_argument("--index", required=True, help="файл индекса (filename<TAB>url)")
+    validate_parser.add_argument("--min-pages", type=int, default=100, help="минимальное число файлов в каталоге (по умолчанию: 100)")
     subparsers.add_parser("package", help="упаковать результат")
 
     return parser
