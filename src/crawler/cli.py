@@ -1,21 +1,28 @@
 import argparse
 import sys
+from pathlib import Path
+
+from .run import run as run_crawler
 
 
-def _cmd_run(_args: argparse.Namespace) -> int:
-    """Подкоманда run: запуск краулера (заглушка)."""
-    print("Not implemented")
-    return 0
+def _cmd_run(args: argparse.Namespace) -> int:
+    """Подкоманда run: запуск краулера по URL из файла с сохранением в out_dir и индексом."""
+    return run_crawler(
+        input_path=Path(args.input),
+        out_dir=Path(args.out),
+        index_path=Path(args.index),
+        limit=args.limit,
+    )
 
 
 def _cmd_validate(_args: argparse.Namespace) -> int:
-    """Подкоманда validate: проверка данных (пока заглушка)."""
+    """Подкоманда validate: проверка данных (заглушка)."""
     print("Not implemented")
     return 0
 
 
 def _cmd_package(_args: argparse.Namespace) -> int:
-    """Подкоманда package: формирование результата (пока заглушка)."""
+    """Подкоманда package: формирование результата (заглушка)."""
     print("Not implemented")
     return 0
 
@@ -28,7 +35,11 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     subparsers = parser.add_subparsers(dest="command", required=True, help="доступные команды")
 
-    subparsers.add_parser("run", help="запустить краулер")
+    run_parser = subparsers.add_parser("run", help="запустить краулер")
+    run_parser.add_argument("--input", required=True, help="файл с URL (по одному на строку)")
+    run_parser.add_argument("--out", required=True, help="каталог для сохранения страниц (0001.html, …)")
+    run_parser.add_argument("--index", required=True, help="файл индекса (filename<TAB>url)")
+    run_parser.add_argument("--limit", type=int, default=100, help="нужное число успешных скачиваний (по умолчанию: 100)")
     subparsers.add_parser("validate", help="проверить конфигурацию/данные")
     subparsers.add_parser("package", help="упаковать результат")
 
