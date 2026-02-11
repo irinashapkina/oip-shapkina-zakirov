@@ -4,6 +4,7 @@ from pathlib import Path
 
 from .run import run as run_crawler
 from .validate import validate as validate_crawler
+from .package import package as package_crawler
 
 
 def _cmd_run(args: argparse.Namespace) -> int:
@@ -25,10 +26,13 @@ def _cmd_validate(args: argparse.Namespace) -> int:
     )
 
 
-def _cmd_package(_args: argparse.Namespace) -> int:
-    """Подкоманда package: формирование результата (заглушка)."""
-    print("Not implemented")
-    return 0
+def _cmd_package(args: argparse.Namespace) -> int:
+    """Подкоманда package: упаковка pages и index в submission.zip."""
+    return package_crawler(
+        pages_dir=Path(args.pages),
+        index_path=Path(args.index),
+        out_zip=Path(args.out),
+    )
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -48,7 +52,10 @@ def _build_parser() -> argparse.ArgumentParser:
     validate_parser.add_argument("--pages", required=True, help="каталог со страницами (0001.html, …)")
     validate_parser.add_argument("--index", required=True, help="файл индекса (filename<TAB>url)")
     validate_parser.add_argument("--min-pages", type=int, default=100, help="минимальное число файлов в каталоге (по умолчанию: 100)")
-    subparsers.add_parser("package", help="упаковать результат")
+    package_parser = subparsers.add_parser("package", help="упаковать страницы и индекс в ZIP")
+    package_parser.add_argument("--pages", required=True, help="каталог со страницами (0001.html, …)")
+    package_parser.add_argument("--index", required=True, help="файл индекса (filename<TAB>url)")
+    package_parser.add_argument("--out", required=True, help="путь к создаваемому ZIP (submission.zip)")
 
     return parser
 
