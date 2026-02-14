@@ -27,15 +27,33 @@ def package(pages_dir: Path, index_path: Path, out_zip: Path) -> int:
         print(f"package: index path is not a file: {index_path}", file=sys.stderr)
         return 1
 
+    tmp_path = out_zip.with_suffix(out_zip.suffix + ".tmp")
+
     try:
         out_zip.parent.mkdir(parents=True, exist_ok=True)
-        with zipfile.ZipFile(out_zip, "w", zipfile.ZIP_DEFLATED) as zf:
-            for f in sorted(pages_dir.iterdir()):
+        with zipfile.ZipFile(tmp_path, "w", zipfile.ZIP_DEFLATED) as zf:
+            for f in sorted(pages_dir.rglob("*")):
                 if f.is_file():
-                    zf.write(f, arcname=f"pages/{f.name}")
+                    arcname = f"pages/{f.relative_to(pages_dir)}"
+                    zf.write(f, arcname=arcname)
             zf.write(index_path, arcname="index.txt")
-    except OSError as e:
-        print(f"package: failed to write zip: {e}", file=sys.stderr)
-        return 1
 
-    return 0
+        if tmp_path.stat().st_size == 0:
+            raise ValueError("Resulting zip file is empty")
+
+        tmp_path.replace(out_zip)
+        return 0
+
+    except Exception as e:
+        print(f"package: {e}", file=sys.stderr)
+        if tmp_path.exists():
+            try:
+                tmp_path.unlink()
+            except OSError:
+                pass
+        if out_zip.exists() and out_zip.stat().st_size == 0:
+            try:
+                out_zip.unlink()
+            except OSError:
+                pass
+        return 1
