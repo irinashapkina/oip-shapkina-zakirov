@@ -5,6 +5,7 @@ from pathlib import Path
 from .run import run as run_crawler
 from .validate import validate as validate_crawler
 from .package import package as package_crawler
+from .text_processing import analyze as analyze_text
 
 
 def _cmd_run(args: argparse.Namespace) -> int:
@@ -35,8 +36,17 @@ def _cmd_package(args: argparse.Namespace) -> int:
     )
 
 
+def _cmd_analyze(args: argparse.Namespace) -> int:
+    """Подкоманда analyze: токенизация и группировка токенов по леммам."""
+    return analyze_text(
+        pages_dir=Path(args.pages),
+        tokens_path=Path(args.tokens),
+        lemmas_path=Path(args.lemmas),
+    )
+
+
 def _build_parser() -> argparse.ArgumentParser:
-    """Собирает парсер с подкомандами run, validate, package."""
+    """Собирает парсер с подкомандами run, validate, package, analyze."""
     parser = argparse.ArgumentParser(
         prog="crawler",
         description="CLI для краулера.",
@@ -56,6 +66,14 @@ def _build_parser() -> argparse.ArgumentParser:
     package_parser.add_argument("--pages", required=True, help="каталог со страницами (0001.html, …)")
     package_parser.add_argument("--index", required=True, help="файл индекса (filename<TAB>url)")
     package_parser.add_argument("--out", required=True, help="путь к создаваемому ZIP (submission.zip)")
+    analyze_parser = subparsers.add_parser("analyze", help="получить токены и леммы из сохраненных HTML")
+    analyze_parser.add_argument("--pages", required=True, help="каталог со страницами (0001.html, …)")
+    analyze_parser.add_argument("--tokens", required=True, help="выходной TXT с токенами (по одному на строку)")
+    analyze_parser.add_argument(
+        "--lemmas",
+        required=True,
+        help="выходной TXT с леммами (формат: <лемма> <токен1> ... <токенN>)",
+    )
 
     return parser
 
@@ -72,6 +90,7 @@ def main() -> int:
         "run": _cmd_run,
         "validate": _cmd_validate,
         "package": _cmd_package,
+        "analyze": _cmd_analyze,
     }
     handler = handlers[args.command]
     return handler(args)
