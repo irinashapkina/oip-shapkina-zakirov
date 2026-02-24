@@ -379,11 +379,11 @@ def _write_lemma_groups(path: Path, lemma_groups: dict[str, list[str]]) -> None:
     path.write_text(content, encoding="utf-8")
 
 
-def analyze(pages_dir: Path, tokens_path: Path, lemmas_path: Path) -> int:
+def analyze(pages_dir: Path, tokens_dir: Path, lemmas_dir: Path) -> int:
     """
-    Читает HTML-файлы из pages_dir, строит:
-    - список уникальных токенов без служебных слов и мусора;
-    - группировку токенов по леммам.
+    Читает HTML-файлы из pages_dir и для каждого файла строит:
+    - отдельный список уникальных токенов без служебных слов и мусора;
+    - отдельную группировку токенов по леммам.
     """
     if not pages_dir.exists():
         print(f"analyze: pages directory not found: {pages_dir}", file=sys.stderr)
@@ -391,18 +391,30 @@ def analyze(pages_dir: Path, tokens_path: Path, lemmas_path: Path) -> int:
     if not pages_dir.is_dir():
         print(f"analyze: pages path is not a directory: {pages_dir}", file=sys.stderr)
         return 1
+    if tokens_dir.exists() and not tokens_dir.is_dir():
+        print(f"analyze: tokens path is not a directory: {tokens_dir}", file=sys.stderr)
+        return 1
+    if lemmas_dir.exists() and not lemmas_dir.is_dir():
+        print(f"analyze: lemmas path is not a directory: {lemmas_dir}", file=sys.stderr)
+        return 1
 
     html_files = sorted(path for path in pages_dir.glob("*.html") if path.is_file())
     if not html_files:
         print(f"analyze: no html files in {pages_dir}", file=sys.stderr)
         return 1
 
-    # Этапы: извлечение текста -> токены -> леммы -> запись артефактов.
-    texts = [_extract_text(path.read_text(encoding="utf-8")) for path in html_files]
-    tokens = _collect_unique_tokens(texts)
-    lemma_groups = _group_by_lemmas(tokens)
+    tokens_dir.mkdir(parents=True, exist_ok=True)
+    lemmas_dir.mkdir(parents=True, exist_ok=True)
 
-    _write_tokens(tokens_path, tokens)
-    _write_lemma_groups(lemmas_path, lemma_groups)
+    # Этапы для каждой страницы: извлечение текста -> токены -> леммы -> запись артефактов.
+    for html_path in html_files:
+        text = _extract_text(html_path.read_text(encoding="utf-8"))
+        tokens = _collect_unique_tokens([text])
+        lemma_groups = _group_by_lemmas(tokens)
+
+        tokens_path = tokens_dir / f"{html_path.stem}_tokens.txt"
+        lemmas_path = lemmas_dir / f"{html_path.stem}_lemmas.txt"
+        _write_tokens(tokens_path, tokens)
+        _write_lemma_groups(lemmas_path, lemma_groups)
 
     return 0

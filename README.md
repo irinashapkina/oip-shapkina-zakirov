@@ -26,7 +26,7 @@
 | `src/crawler/` | Исходный код краулера |
 | `data/` | Входные данные (список URL) |
 | `examples/` | Примеры выходных файлов и данных |
-| `output/` | Сохраненные страницы и результаты постобработки (`tokens.txt`, `lemmas.txt`) |
+| `output/` | Сохраненные страницы и результаты постобработки (`tokens/0001_tokens.txt`, `lemmas/0001_lemmas.txt`, …) |
 | `requirements.txt` | Зависимости Python |
 
 Подробная установка и запуск — в [DEPLOYMENT.md](DEPLOYMENT.md).

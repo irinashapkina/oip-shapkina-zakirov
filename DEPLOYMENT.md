@@ -82,18 +82,21 @@ $env:PYTHONPATH="src"; python -m crawler package --pages output/pages --index ou
 
 ## Токенизация и лемматизация
 
-После того как страницы сохранены в `output/pages`, можно получить списки токенов и лемм:
+После того как страницы сохранены в `output/pages`, можно получить токены и леммы
+отдельно для каждой страницы:
 
 **macOS/Linux:**
 ```bash
-PYTHONPATH=src python -m crawler analyze --pages output/pages --tokens output/tokens.txt --lemmas output/lemmas.txt
+PYTHONPATH=src python -m crawler analyze --pages output/pages --tokens output/tokens --lemmas output/lemmas
 ```
 
 **Windows PowerShell:**
 ```powershell
-$env:PYTHONPATH="src"; python -m crawler analyze --pages output/pages --tokens output/tokens.txt --lemmas output/lemmas.txt
+$env:PYTHONPATH="src"; python -m crawler analyze --pages output/pages --tokens output/tokens --lemmas output/lemmas
 ```
 
 Форматы выходных файлов:
-- `tokens.txt` — по одному токену в строке.
-- `lemmas.txt` — `лемма` + список токенов этой леммы через пробел.
+- в `output/tokens/` создаются файлы `0001_tokens.txt`, `0002_tokens.txt`, ...
+  (по одному токену в строке для соответствующей страницы);
+- в `output/lemmas/` создаются файлы `0001_lemmas.txt`, `0002_lemmas.txt`, ...
+  (формат строк: `лемма` + список токенов этой леммы через пробел).

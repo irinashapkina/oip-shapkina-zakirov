@@ -40,8 +40,8 @@ def _cmd_analyze(args: argparse.Namespace) -> int:
     """Подкоманда analyze: токенизация и группировка токенов по леммам."""
     return analyze_text(
         pages_dir=Path(args.pages),
-        tokens_path=Path(args.tokens),
-        lemmas_path=Path(args.lemmas),
+        tokens_dir=Path(args.tokens),
+        lemmas_dir=Path(args.lemmas),
     )
 
 
@@ -68,11 +68,15 @@ def _build_parser() -> argparse.ArgumentParser:
     package_parser.add_argument("--out", required=True, help="путь к создаваемому ZIP (submission.zip)")
     analyze_parser = subparsers.add_parser("analyze", help="получить токены и леммы из сохраненных HTML")
     analyze_parser.add_argument("--pages", required=True, help="каталог со страницами (0001.html, …)")
-    analyze_parser.add_argument("--tokens", required=True, help="выходной TXT с токенами (по одному на строку)")
+    analyze_parser.add_argument(
+        "--tokens",
+        required=True,
+        help="каталог для токенов по страницам (файлы вида 0001_tokens.txt)",
+    )
     analyze_parser.add_argument(
         "--lemmas",
         required=True,
-        help="выходной TXT с леммами (формат: <лемма> <токен1> ... <токенN>)",
+        help="каталог для лемм по страницам (файлы вида 0001_lemmas.txt)",
     )
 
     return parser
