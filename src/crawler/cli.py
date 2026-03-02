@@ -6,6 +6,8 @@ from .run import run as run_crawler
 from .validate import validate as validate_crawler
 from .package import package as package_crawler
 from .text_processing import analyze as analyze_text
+from .boolean_search import build_index as build_inverted_index
+from .boolean_search import search as search_inverted_index
 
 
 def _cmd_run(args: argparse.Namespace) -> int:
@@ -45,8 +47,24 @@ def _cmd_analyze(args: argparse.Namespace) -> int:
     )
 
 
+def _cmd_build_index(args: argparse.Namespace) -> int:
+    """Подкоманда build-index: построение инвертированного индекса терминов."""
+    return build_inverted_index(
+        tokens_dir=Path(args.tokens),
+        out_path=Path(args.out),
+    )
+
+
+def _cmd_search(args: argparse.Namespace) -> int:
+    """Подкоманда search: булев поиск (AND/OR/NOT, скобки) по индексу."""
+    return search_inverted_index(
+        index_path=Path(args.index),
+        query=args.query,
+    )
+
+
 def _build_parser() -> argparse.ArgumentParser:
-    """Собирает парсер с подкомандами run, validate, package, analyze."""
+    """Собирает парсер с подкомандами run, validate, package, analyze, build-index, search."""
     parser = argparse.ArgumentParser(
         prog="crawler",
         description="CLI для краулера.",
@@ -78,6 +96,24 @@ def _build_parser() -> argparse.ArgumentParser:
         required=True,
         help="каталог для лемм по страницам (файлы вида 0001_lemmas.txt)",
     )
+    build_index_parser = subparsers.add_parser("build-index", help="построить инвертированный индекс")
+    build_index_parser.add_argument(
+        "--tokens",
+        required=True,
+        help="каталог токенов по страницам (файлы вида 0001_tokens.txt)",
+    )
+    build_index_parser.add_argument(
+        "--out",
+        required=True,
+        help="выходной TXT с инвертированным индексом",
+    )
+    search_parser = subparsers.add_parser("search", help="выполнить булев поиск по инвертированному индексу")
+    search_parser.add_argument("--index", required=True, help="файл инвертированного индекса")
+    search_parser.add_argument(
+        "--query",
+        required=False,
+        help="строка булева запроса; если не передан, будет интерактивный ввод",
+    )
 
     return parser
 
@@ -95,6 +131,8 @@ def main() -> int:
         "validate": _cmd_validate,
         "package": _cmd_package,
         "analyze": _cmd_analyze,
+        "build-index": _cmd_build_index,
+        "search": _cmd_search,
     }
     handler = handlers[args.command]
     return handler(args)

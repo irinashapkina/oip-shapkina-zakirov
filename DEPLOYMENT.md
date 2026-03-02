@@ -100,3 +100,37 @@ $env:PYTHONPATH="src"; python -m crawler analyze --pages output/pages --tokens o
   (по одному токену в строке для соответствующей страницы);
 - в `output/lemmas/` создаются файлы `0001_lemmas.txt`, `0002_lemmas.txt`, ...
   (формат строк: `лемма` + список токенов этой леммы через пробел).
+
+## Построение инвертированного индекса
+
+После получения `output/tokens/*.txt` можно построить инвертированный индекс:
+
+**macOS/Linux:**
+```bash
+PYTHONPATH=src python -m crawler build-index --tokens output/tokens --out output/inverted_index.txt
+```
+
+**Windows PowerShell:**
+```powershell
+$env:PYTHONPATH="src"; python -m crawler build-index --tokens output/tokens --out output/inverted_index.txt
+```
+
+Формат строк в `inverted_index.txt`: `термин<TAB>документ1 документ2 ... документN`.
+
+## Булев поиск по индексу
+
+Поддерживаются операторы `AND`, `OR`, `NOT` и скобки.
+
+Пример с передачей запроса в аргументе:
+
+**macOS/Linux:**
+```bash
+PYTHONPATH=src python -m crawler search --index output/inverted_index.txt --query "((психология AND стресс) OR (мотивация AND тревожность)) AND NOT выгорание"
+```
+
+**Windows PowerShell:**
+```powershell
+$env:PYTHONPATH="src"; python -m crawler search --index output/inverted_index.txt --query "((психология AND стресс) OR (мотивация AND тревожность)) AND NOT выгорание"
+```
+
+Если `--query` не передан, команда запросит строку интерактивно.
