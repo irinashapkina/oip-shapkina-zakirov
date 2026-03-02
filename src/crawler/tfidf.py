@@ -197,6 +197,139 @@ def compute_lemma_tf_idf_for_document(
     return tf_lemma, idf_lemma, tfidf_lemma
 
 
+def _doc_id_from_stem(stem: str) -> str:
+    """
+    Приводит stem вида "0001_tokens" или "0001_lemmas" к идентификатору документа "0001".
+    """
+    for suffix in ("_tokens", "_lemmas"):
+        if stem.endswith(suffix):
+            return stem[: -len(suffix)]
+    return stem
+
+
+def _build_doc_maps(
+    token_files: Iterable[Path],
+    lemma_files: Iterable[Path],
+) -> tuple[dict[str, Path], dict[str, Path]]:
+    tokens_by_id: dict[str, Path] = {}
+    for path in token_files:
+        doc_id = _doc_id_from_stem(path.stem)
+        tokens_by_id[doc_id] = path
+
+    lemmas_by_id: dict[str, Path] = {}
+    for path in lemma_files:
+        doc_id = _doc_id_from_stem(path.stem)
+        lemmas_by_id[doc_id] = path
+
+    return tokens_by_id, lemmas_by_id
+
+
+def _write_tfidf_file(
+    path: Path,
+    scores: Mapping[str, float],
+    idf_map: Mapping[str, float],
+) -> None:
+    """
+    Записывает файл TF-IDF формата:
+        <term_or_lemma><пробел><idf><пробел><tf-idf>\\n
+    """
+    path.parent.mkdir(parents=True, exist_ok=True)
+
+    # Сортировка: по убыванию TF-IDF, при равенстве — лексикографически по термину.
+    ranked = sorted(scores.items(), key=lambda kv: (-kv[1], kv[0]))
+
+    lines: list[str] = []
+    for term, tfidf_value in ranked:
+        idf_value = idf_map.get(term, 0.0)
+        lines.append(f"{term} {idf_value:.6f} {tfidf_value:.6f}")
+
+    content = "\n".join(lines)
+    if content:
+        content += "\n"
+    path.write_text(content, encoding="utf-8")
+
+
+def build_tfidf_for_corpus(
+    tokens_dir: Path,
+    lemmas_dir: Path,
+    out_dir: Path,
+) -> int:
+    """
+    Строит TF/IDF/TF-IDF по терминам и леммам для всего корпуса и сохраняет результаты в файлы.
+
+    Для каждого документа с идентификатором <id> создаются файлы:
+        tfidf_terms_<id>.txt
+        tfidf_lemmas_<id>.txt
+
+    Формат строки:
+        <термин_или_лемма><пробел><idf><пробел><tf-idf>\\n
+    """
+    if not tokens_dir.exists():
+        print(f"tfidf: tokens directory not found: {tokens_dir}", file=sys.stderr)
+        return 1
+    if not tokens_dir.is_dir():
+        print(f"tfidf: tokens path is not a directory: {tokens_dir}", file=sys.stderr)
+        return 1
+    if not lemmas_dir.exists():
+        print(f"tfidf: lemmas directory not found: {lemmas_dir}", file=sys.stderr)
+        return 1
+    if not lemmas_dir.is_dir():
+        print(f"tfidf: lemmas path is not a directory: {lemmas_dir}", file=sys.stderr)
+        return 1
+
+    token_files = iter_token_files(tokens_dir)
+    lemma_files = iter_lemma_files(lemmas_dir)
+    if not token_files:
+        print(f"tfidf: no token files in {tokens_dir}", file=sys.stderr)
+        return 1
+    if not lemma_files:
+        print(f"tfidf: no lemma files in {lemmas_dir}", file=sys.stderr)
+        return 1
+
+    # DF для терминов и лемм по всему корпусу.
+    term_df, n_docs_terms = compute_df(token_files)
+    lemma_df, n_docs_lemmas = compute_lemma_df(lemma_files)
+
+    tokens_by_id, lemmas_by_id = _build_doc_maps(token_files, lemma_files)
+    common_ids = sorted(set(tokens_by_id) & set(lemmas_by_id))
+    if not common_ids:
+        print("tfidf: no matching documents between tokens and lemmas", file=sys.stderr)
+        return 1
+
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    for doc_id in common_ids:
+        tokens_path = tokens_by_id[doc_id]
+        lemmas_path = lemmas_by_id[doc_id]
+
+        tokens = load_document_tokens(tokens_path)
+        lemma_groups = load_document_lemmas(lemmas_path)
+
+        # Термины.
+        _tf_terms, idf_terms, tfidf_terms = compute_tf_idf_for_document(
+            tokens,
+            df=term_df,
+            n_docs=n_docs_terms,
+            smooth_idf=True,
+        )
+        terms_out_path = out_dir / f"tfidf_terms_{doc_id}.txt"
+        _write_tfidf_file(terms_out_path, tfidf_terms, idf_terms)
+
+        # Леммы.
+        _tf_lemmas, idf_lemmas, tfidf_lemmas = compute_lemma_tf_idf_for_document(
+            tokens,
+            lemma_groups,
+            df_lemma=lemma_df,
+            n_docs=n_docs_lemmas,
+            smooth_idf=True,
+        )
+        lemmas_out_path = out_dir / f"tfidf_lemmas_{doc_id}.txt"
+        _write_tfidf_file(lemmas_out_path, tfidf_lemmas, idf_lemmas)
+
+    return 0
+
+
+
 def demo_tfidf(tokens_dir: Path, doc_tokens: Path | None = None, top_k: int = 10) -> int:
     """
     Демо-функция: строит df/idf по каталогу токенов и печатает top-K TF-IDF для одного документа.
