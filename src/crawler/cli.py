@@ -8,6 +8,7 @@ from .package import package as package_crawler
 from .text_processing import analyze as analyze_text
 from .boolean_search import build_index as build_inverted_index
 from .boolean_search import search as search_inverted_index
+from .tfidf import build_tfidf_for_corpus as build_tfidf_corpus
 
 
 def _cmd_run(args: argparse.Namespace) -> int:
@@ -63,8 +64,25 @@ def _cmd_search(args: argparse.Namespace) -> int:
     )
 
 
+def _cmd_tfidf(args: argparse.Namespace) -> int:
+    """Подкоманда tfidf: расчёт TF/IDF/TF-IDF по корпусу и генерация per-document файлов."""
+    tokens_dir = Path(args.tokens)
+    lemmas_dir = Path(args.lemmas)
+    out_dir = Path(args.out)
+
+    print(f"tfidf: tokens_dir = {tokens_dir}")
+    print(f"tfidf: lemmas_dir = {lemmas_dir}")
+    print(f"tfidf: out_dir    = {out_dir}")
+
+    return build_tfidf_corpus(
+        tokens_dir=tokens_dir,
+        lemmas_dir=lemmas_dir,
+        out_dir=out_dir,
+    )
+
+
 def _build_parser() -> argparse.ArgumentParser:
-    """Собирает парсер с подкомандами run, validate, package, analyze, build-index, search."""
+    """Собирает парсер с подкомандами run, validate, package, analyze, build-index, search, tfidf."""
     parser = argparse.ArgumentParser(
         prog="crawler",
         description="CLI для краулера.",
@@ -115,6 +133,26 @@ def _build_parser() -> argparse.ArgumentParser:
         help="строка булева запроса; если не передан, будет интерактивный ввод",
     )
 
+    tfidf_parser = subparsers.add_parser(
+        "tfidf",
+        help="подсчитать TF/IDF/TF-IDF по корпусу и сохранить per-document файлы",
+    )
+    tfidf_parser.add_argument(
+        "--tokens",
+        default="output/tokens",
+        help="каталог токенов по страницам (файлы вида 0001_tokens.txt, по умолчанию: output/tokens)",
+    )
+    tfidf_parser.add_argument(
+        "--lemmas",
+        default="output/lemmas",
+        help="каталог лемм по страницам (файлы вида 0001_lemmas.txt, по умолчанию: output/lemmas)",
+    )
+    tfidf_parser.add_argument(
+        "--out",
+        default="output/tfidf",
+        help="каталог для TF-IDF файлов (tfidf_terms_<id>.txt, tfidf_lemmas_<id>.txt, по умолчанию: output/tfidf)",
+    )
+
     return parser
 
 
@@ -133,6 +171,7 @@ def main() -> int:
         "analyze": _cmd_analyze,
         "build-index": _cmd_build_index,
         "search": _cmd_search,
+        "tfidf": _cmd_tfidf,
     }
     handler = handlers[args.command]
     return handler(args)

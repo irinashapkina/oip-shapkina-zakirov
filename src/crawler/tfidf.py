@@ -280,10 +280,16 @@ def build_tfidf_for_corpus(
     token_files = iter_token_files(tokens_dir)
     lemma_files = iter_lemma_files(lemmas_dir)
     if not token_files:
-        print(f"tfidf: no token files in {tokens_dir}", file=sys.stderr)
+        print(
+            f"tfidf: no token files in {tokens_dir} (не найдено *_tokens.txt — сначала выполните задание 2)",
+            file=sys.stderr,
+        )
         return 1
     if not lemma_files:
-        print(f"tfidf: no lemma files in {lemmas_dir}", file=sys.stderr)
+        print(
+            f"tfidf: no lemma files in {lemmas_dir} (не найдено *_lemmas.txt — сначала выполните задание 2)",
+            file=sys.stderr,
+        )
         return 1
 
     # DF для терминов и лемм по всему корпусу.
@@ -298,6 +304,9 @@ def build_tfidf_for_corpus(
 
     out_dir.mkdir(parents=True, exist_ok=True)
 
+    processed = 0
+    example_terms_path: Path | None = None
+    example_lemmas_path: Path | None = None
     for doc_id in common_ids:
         tokens_path = tokens_by_id[doc_id]
         lemmas_path = lemmas_by_id[doc_id]
@@ -326,6 +335,18 @@ def build_tfidf_for_corpus(
         lemmas_out_path = out_dir / f"tfidf_lemmas_{doc_id}.txt"
         _write_tfidf_file(lemmas_out_path, tfidf_lemmas, idf_lemmas)
 
+        processed += 1
+        if example_terms_path is None:
+            example_terms_path = terms_out_path
+        if example_lemmas_path is None:
+            example_lemmas_path = lemmas_out_path
+
+    print(f"tfidf: processed {processed} documents")
+    print(f"tfidf: output directory: {out_dir}")
+    if example_terms_path is not None and example_lemmas_path is not None:
+        print(f"tfidf: example terms file: {example_terms_path}")
+        print(f"tfidf: example lemmas file: {example_lemmas_path}")
+
     return 0
 
 
@@ -334,7 +355,7 @@ def demo_tfidf(tokens_dir: Path, doc_tokens: Path | None = None, top_k: int = 10
     """
     Демо-функция: строит df/idf по каталогу токенов и печатает top-K TF-IDF для одного документа.
 
-   Только вычисления и вывод в stdout/stderr.
+    Только вычисления и вывод в stdout/stderr.
     """
     if not tokens_dir.exists():
         print(f"demo-tfidf: tokens directory not found: {tokens_dir}", file=sys.stderr)

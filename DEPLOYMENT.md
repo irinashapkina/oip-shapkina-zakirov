@@ -134,3 +134,38 @@ $env:PYTHONPATH="src"; python -m crawler search --index output/inverted_index.tx
 ```
 
 Если `--query` не передан, команда запросит строку интерактивно.
+
+## Расчёт TF/IDF/TF-IDF (задание 4)
+
+После того как выполнены задания 1–3 (скачивание, токенизация/лемматизация, построение инвертированного индекса), можно запустить расчёт TF/IDF/TF-IDF по всему корпусу.
+
+Команда автоматически использует стандартную структуру репозитория:
+
+- входные токены: `output/tokens/0001_tokens.txt`, `0002_tokens.txt`, …
+- входные леммы: `output/lemmas/0001_lemmas.txt`, `0002_lemmas.txt`, …
+- выходные TF-IDF файлы: `output/tfidf/`.
+
+**macOS/Linux:**
+```bash
+PYTHONPATH=src python -m crawler tfidf
+```
+
+**Windows PowerShell:**
+```powershell
+$env:PYTHONPATH="src"; python -m crawler tfidf
+```
+
+Результат:
+
+- Каталог `output/tfidf/` создаётся автоматически.
+- Для каждого документа `<id>` (например, `0001`) будут созданы файлы:
+  - `tfidf_terms_<id>.txt` — TF-IDF по терминам
+  - `tfidf_lemmas_<id>.txt` — TF-IDF по леммам
+
+Формат строк в этих файлах:
+
+```text
+<термин_или_лемма> <idf> <tf-idf>
+```
+
+Значения `idf` и `tf-idf` выводятся с фиксированной точностью до 6 знаков после запятой.
