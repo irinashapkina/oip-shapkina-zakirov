@@ -20,7 +20,7 @@ def load_document_tokens(tokens_path: Path) -> list[str]:
 
 
 def iter_token_files(tokens_dir: Path) -> list[Path]:
-    """Возвращает список per-document файлов токенов (*_tokens.txt)."""
+    """Возвращает список per-document файлов токенов (*_tokens.txt) в стабильном порядке."""
     return sorted(path for path in tokens_dir.glob("*_tokens.txt") if path.is_file())
 
 
@@ -102,6 +102,99 @@ def compute_tf_idf_for_document(
         tfidf_map[term] = tf_value * idf_value
 
     return tf_map, idf_map, tfidf_map
+
+
+def load_document_lemmas(lemmas_path: Path) -> dict[str, list[str]]:
+    """
+    Загружает леммы документа из файла задания 2.
+    """
+    lemma_groups: dict[str, list[str]] = {}
+    for line in lemmas_path.read_text(encoding="utf-8").splitlines():
+        parts = line.strip().split()
+        if not parts:
+            continue
+        lemma = parts[0].lower()
+        tokens = {token.lower() for token in parts[1:] if token}
+        lemma_groups[lemma] = sorted(tokens)
+    return lemma_groups
+
+
+def iter_lemma_files(lemmas_dir: Path) -> list[Path]:
+    """Возвращает список per-document файлов лемм (*_lemmas.txt) в стабильном порядке."""
+    return sorted(path for path in lemmas_dir.glob("*_lemmas.txt") if path.is_file())
+
+
+def compute_lemma_df(lemma_files: Iterable[Path]) -> tuple[dict[str, int], int]:
+    """
+    Считает DF(lemma) по корпусу.
+
+    DF(lemma) — количество документов, где lemma_count > 0.
+    N — количество документов в корпусе (количество файлов лемм).
+    """
+    df: dict[str, int] = {}
+    n_docs = 0
+
+    for path in lemma_files:
+        n_docs += 1
+        lemma_groups = load_document_lemmas(path)
+        for lemma in lemma_groups:
+            df[lemma] = df.get(lemma, 0) + 1
+
+    return df, n_docs
+
+
+def compute_lemma_tf_for_document(
+    tokens: list[str],
+    lemma_groups: Mapping[str, Iterable[str]],
+) -> dict[str, float]:
+    """
+    Считает TF для лемм одного документа.
+
+    lemma_count = сумма вхождений всех токенов леммы в документе;
+    total_terms = общее число терминов (размер списка tokens с повторами);
+    TF(lemma) = lemma_count / total_terms.
+    """
+    total = len(tokens)
+    if total == 0 or not lemma_groups:
+        return {}
+
+    counts = Counter(tokens)
+    tf_lemma: dict[str, float] = {}
+    for lemma, lemma_tokens in lemma_groups.items():
+        lemma_count = 0
+        for token in lemma_tokens:
+            lemma_count += counts.get(token, 0)
+        if lemma_count > 0:
+            tf_lemma[lemma] = lemma_count / total
+
+    return tf_lemma
+
+
+def compute_lemma_tf_idf_for_document(
+    tokens: list[str],
+    lemma_groups: Mapping[str, Iterable[str]],
+    *,
+    df_lemma: Mapping[str, int],
+    n_docs: int,
+    smooth_idf: bool = True,
+) -> tuple[dict[str, float], dict[str, float], dict[str, float]]:
+    """
+    Считает TF, IDF и TF-IDF для лемм одного документа.
+
+    Возвращает (tf_lemma_map, idf_lemma_map_for_doc_lemmas, tfidf_lemma_map).
+    """
+    tf_lemma = compute_lemma_tf_for_document(tokens, lemma_groups)
+    if not tf_lemma:
+        return {}, {}, {}
+
+    idf_lemma: dict[str, float] = {}
+    tfidf_lemma: dict[str, float] = {}
+    for lemma, tf_value in tf_lemma.items():
+        idf_value = idf(lemma, df=df_lemma, n_docs=n_docs, smooth=smooth_idf)
+        idf_lemma[lemma] = idf_value
+        tfidf_lemma[lemma] = tf_value * idf_value
+
+    return tf_lemma, idf_lemma, tfidf_lemma
 
 
 def demo_tfidf(tokens_dir: Path, doc_tokens: Path | None = None, top_k: int = 10) -> int:
