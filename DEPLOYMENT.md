@@ -101,21 +101,21 @@ $env:PYTHONPATH="src"; python -m crawler analyze --pages output/pages --tokens o
 - в `output/lemmas/` создаются файлы `0001_lemmas.txt`, `0002_lemmas.txt`, ...
   (формат строк: `лемма` + список токенов этой леммы через пробел).
 
-## Построение инвертированного индекса
+## Построение инвертированного индекса (по леммам)
 
-После получения `output/tokens/*.txt` можно построить инвертированный индекс:
+После получения `output/lemmas/*.txt` можно построить инвертированный индекс по леммам:
 
 **macOS/Linux:**
 ```bash
-PYTHONPATH=src python -m crawler build-index --tokens output/tokens --out output/inverted_index.txt
+PYTHONPATH=src python -m crawler build-index --lemmas output/lemmas --out output/inverted_index.txt
 ```
 
 **Windows PowerShell:**
 ```powershell
-$env:PYTHONPATH="src"; python -m crawler build-index --tokens output/tokens --out output/inverted_index.txt
+$env:PYTHONPATH="src"; python -m crawler build-index --lemmas output/lemmas --out output/inverted_index.txt
 ```
 
-Формат строк в `inverted_index.txt`: `термин<TAB>документ1 документ2 ... документN`.
+Формат строк в `inverted_index.txt`: `лемма<TAB>документ1 документ2 ... документN`.
 
 ## Булев поиск по индексу
 

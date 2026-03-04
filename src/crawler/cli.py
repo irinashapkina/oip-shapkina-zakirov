@@ -49,9 +49,9 @@ def _cmd_analyze(args: argparse.Namespace) -> int:
 
 
 def _cmd_build_index(args: argparse.Namespace) -> int:
-    """Подкоманда build-index: построение инвертированного индекса терминов."""
+    """Подкоманда build-index: построение инвертированного индекса по леммам."""
     return build_inverted_index(
-        tokens_dir=Path(args.tokens),
+        lemmas_dir=Path(args.lemmas),
         out_path=Path(args.out),
     )
 
@@ -114,16 +114,16 @@ def _build_parser() -> argparse.ArgumentParser:
         required=True,
         help="каталог для лемм по страницам (файлы вида 0001_lemmas.txt)",
     )
-    build_index_parser = subparsers.add_parser("build-index", help="построить инвертированный индекс")
+    build_index_parser = subparsers.add_parser("build-index", help="построить инвертированный индекс по леммам")
     build_index_parser.add_argument(
-        "--tokens",
+        "--lemmas",
         required=True,
-        help="каталог токенов по страницам (файлы вида 0001_tokens.txt)",
+        help="каталог лемм по страницам (файлы вида 0001_lemmas.txt)",
     )
     build_index_parser.add_argument(
         "--out",
         required=True,
-        help="выходной TXT с инвертированным индексом",
+        help="выходной TXT с инвертированным индексом (лемма -> документы)",
     )
     search_parser = subparsers.add_parser("search", help="выполнить булев поиск по инвертированному индексу")
     search_parser.add_argument("--index", required=True, help="файл инвертированного индекса")

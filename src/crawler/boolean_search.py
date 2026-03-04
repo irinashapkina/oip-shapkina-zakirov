@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import re
 import sys
 from pathlib import Path
@@ -6,39 +7,40 @@ OPERATORS = {"AND", "OR", "NOT"}
 TERM_RE = re.compile(r"[A-Za-zА-Яа-яЁё-]+")
 
 
-def _doc_id_from_token_file(path: Path) -> str:
+def _doc_id_from_lemma_file(path: Path) -> str:
     stem = path.stem
-    if stem.endswith("_tokens"):
-        stem = stem[: -len("_tokens")]
+    if stem.endswith("_lemmas"):
+        stem = stem[: -len("_lemmas")]
     return f"{stem}.html"
 
 
-def _parse_tokens_file(path: Path) -> list[str]:
-    terms: list[str] = []
+def _parse_lemmas_file(path: Path) -> set[str]:
+    """Читает файл лемм, возвращает множество лемм документа (первое слово в каждой строке)."""
+    lemmas: set[str] = set()
     for line in path.read_text(encoding="utf-8").splitlines():
-        token = line.strip().lower()
-        if token:
-            terms.append(token)
-    return terms
+        parts = line.strip().split()
+        if not parts:
+            continue
+        lemmas.add(parts[0].lower())
+    return lemmas
 
 
-def _build_inverted_index(tokens_dir: Path) -> tuple[dict[str, set[str]], set[str]]:
-    token_files = sorted(tokens_dir.glob("*_tokens.txt"))
-    if not token_files:
-        raise ValueError(f"no token files in {tokens_dir}")
+def _build_inverted_index_from_lemmas(lemmas_dir: Path) -> tuple[dict[str, set[str]], set[str]]:
+    """Строит инвертированный индекс по леммам: лемма -> множество id документов."""
+    lemma_files = sorted(lemmas_dir.glob("*_lemmas.txt"))
+    if not lemma_files:
+        raise ValueError(f"no lemma files in {lemmas_dir}")
 
     index: dict[str, set[str]] = {}
     all_docs: set[str] = set()
 
-    for token_file in token_files:
-        if not token_file.is_file():
+    for lemma_file in lemma_files:
+        if not lemma_file.is_file():
             continue
-        doc_id = _doc_id_from_token_file(token_file)
+        doc_id = _doc_id_from_lemma_file(lemma_file)
         all_docs.add(doc_id)
-
-        # Во входном файле токены уже уникальные, но set здесь защищает от дублей.
-        for term in set(_parse_tokens_file(token_file)):
-            index.setdefault(term, set()).add(doc_id)
+        for lemma in _parse_lemmas_file(lemma_file):
+            index.setdefault(lemma, set()).add(doc_id)
 
     return index, all_docs
 
@@ -55,16 +57,17 @@ def _write_inverted_index(path: Path, index: dict[str, set[str]]) -> None:
     path.write_text(content, encoding="utf-8")
 
 
-def build_index(tokens_dir: Path, out_path: Path) -> int:
-    if not tokens_dir.exists():
-        print(f"build-index: tokens directory not found: {tokens_dir}", file=sys.stderr)
+def build_index(lemmas_dir: Path, out_path: Path) -> int:
+    """Строит инвертированный индекс по леммам и записывает в out_path."""
+    if not lemmas_dir.exists():
+        print(f"build-index: lemmas directory not found: {lemmas_dir}", file=sys.stderr)
         return 1
-    if not tokens_dir.is_dir():
-        print(f"build-index: tokens path is not a directory: {tokens_dir}", file=sys.stderr)
+    if not lemmas_dir.is_dir():
+        print(f"build-index: lemmas path is not a directory: {lemmas_dir}", file=sys.stderr)
         return 1
 
     try:
-        index, _all_docs = _build_inverted_index(tokens_dir)
+        index, _all_docs = _build_inverted_index_from_lemmas(lemmas_dir)
     except ValueError as e:
         print(f"build-index: {e}", file=sys.stderr)
         return 1
@@ -135,7 +138,12 @@ def _tokenize_query(query: str) -> list[tuple[str, str]]:
 
 
 class _BooleanQueryParser:
-    def __init__(self, tokens: list[tuple[str, str]], index: dict[str, set[str]], all_docs: set[str]) -> None:
+    def __init__(
+        self,
+        tokens: list[tuple[str, str]],
+        index: dict[str, set[str]],
+        all_docs: set[str],
+    ) -> None:
         self.tokens = tokens
         self.index = index
         self.all_docs = all_docs
@@ -185,7 +193,8 @@ class _BooleanQueryParser:
     def _parse_primary(self) -> set[str]:
         term = self._accept("TERM")
         if term is not None:
-            return set(self.index.get(term[1], set()))
+            # Индекс по леммам: ищем термин как есть (пользователь вводит лемму)
+            return set(self.index.get(term[1].lower(), set()))
 
         if self._accept("LPAREN") is not None:
             expr = self._parse_or()
