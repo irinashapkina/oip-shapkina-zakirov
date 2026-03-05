@@ -169,3 +169,75 @@ $env:PYTHONPATH="src"; python -m crawler tfidf
 ```
 
 Значения `idf` и `tf-idf` выводятся с фиксированной точностью до 6 знаков после запятой.
+
+## Быстрый pipeline заданий 1–4
+
+Если базовые шаги уже известны, можно выполнить всё последовательно так:
+
+**macOS/Linux:**
+```bash
+PYTHONPATH=src python -m crawler run --input data/urls.txt --out output/pages --index output/index.txt --limit 100
+PYTHONPATH=src python -m crawler analyze --pages output/pages --tokens output/tokens --lemmas output/lemmas
+PYTHONPATH=src python -m crawler build-index --tokens output/tokens --out output/inverted_index.txt
+PYTHONPATH=src python -m crawler tfidf
+```
+
+**Windows PowerShell:**
+```powershell
+$env:PYTHONPATH="src"; python -m crawler run --input data/urls.txt --out output/pages --index output/index.txt --limit 100
+$env:PYTHONPATH="src"; python -m crawler analyze --pages output/pages --tokens output/tokens --lemmas output/lemmas
+$env:PYTHONPATH="src"; python -m crawler build-index --tokens output/tokens --out output/inverted_index.txt
+$env:PYTHONPATH="src"; python -m crawler tfidf
+```
+
+## Построение векторного индекса (задание 5)
+
+После расчёта TF-IDF выполните:
+
+**macOS/Linux:**
+```bash
+PYTHONPATH=src python -m crawler vector-index --tfidf output/tfidf --out output/vector_index
+```
+
+**Windows PowerShell:**
+```powershell
+$env:PYTHONPATH="src"; python -m crawler vector-index --tfidf output/tfidf --out output/vector_index
+```
+
+Команда выводит:
+- сколько документов проиндексировано;
+- размер словаря (число терминов);
+- путь к сохранённому индексу.
+
+## Векторный поиск
+
+Поиск выполняется по уже сохранённому индексу.
+
+Примеры запросов:
+
+**macOS/Linux:**
+```bash
+PYTHONPATH=src python -m crawler vector-search "психология стресс" --top 5
+PYTHONPATH=src python -m crawler vector-search "мотивация тревожность" --top 10
+PYTHONPATH=src python -m crawler vector-search "когнитивная терапия" --top 7
+```
+
+**Windows PowerShell:**
+```powershell
+$env:PYTHONPATH="src"; python -m crawler vector-search "психология стресс" --top 5
+$env:PYTHONPATH="src"; python -m crawler vector-search "мотивация тревожность" --top 10
+$env:PYTHONPATH="src"; python -m crawler vector-search "когнитивная терапия" --top 7
+```
+
+Формат вывода:
+```text
+doc_id score url
+```
+
+Если индекс не найден, команда подскажет сначала запустить `vector-index`.
+
+## Где лежат файлы векторного индекса
+
+- Каталог индекса: `output/vector_index/`
+- Основной файл индекса: `output/vector_index/vector_index.json`
+- Для связи `doc_id -> url` используется существующий файл: `output/index.txt`
