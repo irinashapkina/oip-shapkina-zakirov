@@ -241,3 +241,52 @@ doc_id score url
 - Каталог индекса: `output/vector_index/`
 - Основной файл индекса: `output/vector_index/vector_index.json`
 - Для связи `doc_id -> url` используется существующий файл: `output/index.txt`
+
+## WEB-интерфейс поиска
+
+Перед запуском WEB-интерфейса убедитесь, что индекс уже построен:
+
+**macOS/Linux:**
+```bash
+PYTHONPATH=src python -m crawler vector-index --tfidf output/tfidf --out output/vector_index
+```
+
+**Windows PowerShell:**
+```powershell
+$env:PYTHONPATH="src"; python -m crawler vector-index --tfidf output/tfidf --out output/vector_index
+```
+
+Запуск WEB-сервера (одной командой):
+
+**macOS/Linux:**
+```bash
+PYTHONPATH=src python -m webapp
+```
+
+**Windows PowerShell:**
+```powershell
+$env:PYTHONPATH="src"; python -m webapp
+```
+
+Переменные окружения:
+- `PORT` — порт сервера (по умолчанию `8000`)
+- `VECTOR_INDEX_DIR` — каталог векторного индекса (по умолчанию `output/vector_index`)
+- `INDEX_PATH` — путь к `index.txt` с URL (по умолчанию `output/index.txt`)
+
+Пример запуска с настройками:
+
+**macOS/Linux:**
+```bash
+PORT=8010 VECTOR_INDEX_DIR=output/vector_index INDEX_PATH=output/index.txt PYTHONPATH=src python -m webapp
+```
+
+**Windows PowerShell:**
+```powershell
+$env:PORT="8010"; $env:VECTOR_INDEX_DIR="output/vector_index"; $env:INDEX_PATH="output/index.txt"; $env:PYTHONPATH="src"; python -m webapp
+```
+
+Как пользоваться:
+1. Откройте `http://localhost:8000` (или выбранный `PORT`).
+2. Введите текст запроса в форму.
+3. Нажмите `Search`.
+4. Получите top-10 результатов в таблице (`doc_id`, `score`, `url`) в порядке убывания score.
