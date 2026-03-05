@@ -286,6 +286,40 @@ def _cosine_similarity_with_doc_norm(
     return dot / (query_norm * doc_norm)
 
 
+def search_in_loaded_index(
+    query: str,
+    top_k: int,
+    vector_index: dict[str, dict[str, dict[str, float]] | dict[str, float] | str],
+    tfidf_dir: Path = DEFAULT_TFIDF_DIR,
+) -> list[tuple[str, float]]:
+    """
+    Поиск только по уже загруженному векторному индексу (без чтения TF-IDF файлов).
+    """
+    if top_k <= 0:
+        return []
+
+    idf_map = vector_index.get("idf_map")
+    doc_vectors = vector_index.get("doc_vectors")
+    doc_norms = vector_index.get("doc_norms")
+    if not isinstance(idf_map, dict) or not isinstance(doc_vectors, dict) or not isinstance(doc_norms, dict):
+        raise ValueError("invalid vector index payload")
+
+    query_vector = build_query_vector(query, tfidf_dir=tfidf_dir, idf_map=idf_map)
+    query_norm = _norm_sparse(query_vector)
+
+    candidates: list[tuple[str, float]] = []
+    for doc_id, doc_vector in doc_vectors.items():
+        if not isinstance(doc_id, str) or not isinstance(doc_vector, dict):
+            continue
+        doc_norm = float(doc_norms.get(doc_id, 0.0))
+        score = _cosine_similarity_with_doc_norm(query_vector, query_norm, doc_vector, doc_norm)
+        if score > 0.0:
+            candidates.append((doc_id, score))
+
+    candidates.sort(key=lambda item: (-item[1], item[0]))
+    return candidates[:top_k]
+
+
 def search(
     query: str,
     top_k: int,
@@ -305,35 +339,20 @@ def search(
     except (FileNotFoundError, ValueError):
         loaded_index = None
 
-    try:
-        if loaded_index is not None:
-            idf_map = loaded_index["idf_map"]
-            if not isinstance(idf_map, dict):
-                raise ValueError("invalid vector index: idf_map")
-            query_vector = build_query_vector(query, tfidf_dir=tfidf_dir, idf_map=idf_map)
-        else:
-            query_vector = build_query_vector(query, tfidf_dir=tfidf_dir)
-    except ValueError as exc:
-        print(f"vector-search: {exc}", file=sys.stderr)
-        return []
-
-    candidates: list[tuple[str, float]] = []
     if loaded_index is not None:
-        doc_vectors = loaded_index["doc_vectors"]
-        doc_norms = loaded_index["doc_norms"]
-        if not isinstance(doc_vectors, dict) or not isinstance(doc_norms, dict):
-            print("vector-search: invalid vector index payload", file=sys.stderr)
+        try:
+            return search_in_loaded_index(query, top_k, loaded_index, tfidf_dir=tfidf_dir)
+        except ValueError as exc:
+            print(f"vector-search: {exc}", file=sys.stderr)
+            return []
+    else:
+        try:
+            query_vector = build_query_vector(query, tfidf_dir=tfidf_dir)
+        except ValueError as exc:
+            print(f"vector-search: {exc}", file=sys.stderr)
             return []
 
-        query_norm = _norm_sparse(query_vector)
-        for doc_id, doc_vector in doc_vectors.items():
-            if not isinstance(doc_id, str) or not isinstance(doc_vector, dict):
-                continue
-            doc_norm = float(doc_norms.get(doc_id, 0.0))
-            score = _cosine_similarity_with_doc_norm(query_vector, query_norm, doc_vector, doc_norm)
-            if score > 0.0:
-                candidates.append((doc_id, score))
-    else:
+        candidates: list[tuple[str, float]] = []
         for tfidf_file in _iter_tfidf_files(tfidf_dir):
             doc_id = _doc_id_from_tfidf_file(tfidf_file)
             doc_vector = load_doc_vector(doc_id, tfidf_dir=tfidf_dir)
@@ -341,5 +360,5 @@ def search(
             if score > 0.0:
                 candidates.append((doc_id, score))
 
-    candidates.sort(key=lambda item: (-item[1], item[0]))
-    return candidates[:top_k]
+        candidates.sort(key=lambda item: (-item[1], item[0]))
+        return candidates[:top_k]

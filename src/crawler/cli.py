@@ -10,6 +10,8 @@ from .boolean_search import build_index as build_inverted_index
 from .boolean_search import search as search_inverted_index
 from .tfidf import build_tfidf_for_corpus as build_tfidf_corpus
 from .vector_search import build_vector_index as build_vector_search_index
+from .vector_search import load_vector_index as load_vector_search_index
+from .vector_search import search_in_loaded_index as search_in_vector_index
 
 
 def _cmd_run(args: argparse.Namespace) -> int:
@@ -96,13 +98,104 @@ def _cmd_build_vector_index(args: argparse.Namespace) -> int:
         return 1
 
     doc_vectors = payload.get("doc_vectors", {})
+    idf_map = payload.get("idf_map", {})
     print(f"build-vector-index: indexed documents = {len(doc_vectors) if isinstance(doc_vectors, dict) else 0}")
+    print(f"build-vector-index: vocabulary size = {len(idf_map) if isinstance(idf_map, dict) else 0}")
     print(f"build-vector-index: index file = {out_dir / 'vector_index.json'}")
     return 0
 
 
+def _read_url_index(index_path: Path) -> dict[str, str]:
+    """
+    Читает index.txt формата: filename<TAB>url и возвращает doc_id -> url.
+    Поддерживает ключи и с .html, и без него.
+    """
+    if not index_path.exists() or not index_path.is_file():
+        raise ValueError(f"index file not found: {index_path}")
+
+    url_map: dict[str, str] = {}
+    for line_no, raw_line in enumerate(index_path.read_text(encoding="utf-8").splitlines(), start=1):
+        line = raw_line.strip()
+        if not line:
+            continue
+        if "\t" not in line:
+            raise ValueError(f"invalid index format at line {line_no}: expected 'filename<TAB>url'")
+        filename, url = line.split("\t", 1)
+        filename = filename.strip()
+        url = url.strip()
+        if not filename:
+            raise ValueError(f"invalid index format at line {line_no}: empty filename")
+        doc_id = filename
+        if doc_id.endswith(".html"):
+            bare_id = doc_id[: -len(".html")]
+        else:
+            bare_id = doc_id
+            doc_id = f"{doc_id}.html"
+        url_map[doc_id] = url
+        url_map[bare_id] = url
+    return url_map
+
+
+def _cmd_vector_index(args: argparse.Namespace) -> int:
+    """Подкоманда vector-index: построение и сохранение векторного индекса по TF-IDF."""
+    tfidf_dir = Path(args.tfidf)
+    out_dir = Path(args.out)
+
+    print(f"vector-index: tfidf_dir = {tfidf_dir}")
+    print(f"vector-index: out_dir   = {out_dir}")
+    try:
+        payload = build_vector_search_index(tfidf_dir=tfidf_dir, index_dir=out_dir)
+    except ValueError as e:
+        print(f"vector-index: {e}", file=sys.stderr)
+        return 1
+
+    doc_vectors = payload.get("doc_vectors", {})
+    idf_map = payload.get("idf_map", {})
+    print(f"vector-index: indexed documents = {len(doc_vectors) if isinstance(doc_vectors, dict) else 0}")
+    print(f"vector-index: vocabulary size = {len(idf_map) if isinstance(idf_map, dict) else 0}")
+    print(f"vector-index: index file = {out_dir / 'vector_index.json'}")
+    return 0
+
+
+def _cmd_vector_search(args: argparse.Namespace) -> int:
+    """Подкоманда vector-search: поиск по сохранённому векторному индексу."""
+    index_dir = Path(args.vector_index)
+    corpus_index_path = Path(args.index)
+    query = args.query
+    top_k = args.top
+
+    try:
+        vector_index = load_vector_search_index(index_dir=index_dir)
+    except FileNotFoundError:
+        print(
+            f"vector-search: vector index not found in {index_dir}; run `vector-index` first",
+            file=sys.stderr,
+        )
+        return 1
+    except ValueError as e:
+        print(f"vector-search: {e}", file=sys.stderr)
+        return 1
+
+    try:
+        results = search_in_vector_index(query=query, top_k=top_k, vector_index=vector_index)
+    except ValueError as e:
+        print(f"vector-search: {e}", file=sys.stderr)
+        return 1
+
+    try:
+        url_map = _read_url_index(corpus_index_path)
+    except ValueError as e:
+        print(f"vector-search: {e}", file=sys.stderr)
+        return 1
+
+    for doc_id, score in results:
+        url = url_map.get(doc_id, "")
+        print(f"{doc_id} {score:.6f} {url}")
+    return 0
+
+
 def _build_parser() -> argparse.ArgumentParser:
-    """Собирает парсер с подкомандами run, validate, package, analyze, build-index, search, tfidf, build-vector-index."""
+    """Собирает парсер с подкомандами run, validate, package, analyze, build-index, search, tfidf, build-vector-index, vector-index, vector-search."""
     parser = argparse.ArgumentParser(
         prog="crawler",
         description="CLI для краулера.",
@@ -188,6 +281,46 @@ def _build_parser() -> argparse.ArgumentParser:
         help="каталог для сохранения векторного индекса (по умолчанию: output/vector_index)",
     )
 
+    vector_index_alias_parser = subparsers.add_parser(
+        "vector-index",
+        help="построить и сохранить векторный индекс по готовым TF-IDF файлам",
+    )
+    vector_index_alias_parser.add_argument(
+        "--tfidf",
+        default="output/tfidf",
+        help="каталог с TF-IDF файлами (tfidf_lemmas_<id>.txt, по умолчанию: output/tfidf)",
+    )
+    vector_index_alias_parser.add_argument(
+        "--out",
+        default="output/vector_index",
+        help="каталог для сохранения векторного индекса (по умолчанию: output/vector_index)",
+    )
+
+    vector_search_parser = subparsers.add_parser(
+        "vector-search",
+        help="выполнить косинусный поиск по сохранённому векторному индексу",
+    )
+    vector_search_parser.add_argument(
+        "query",
+        help="текстовый поисковый запрос",
+    )
+    vector_search_parser.add_argument(
+        "--top",
+        type=int,
+        default=10,
+        help="размер top-K выдачи (по умолчанию: 10)",
+    )
+    vector_search_parser.add_argument(
+        "--vector-index",
+        default="output/vector_index",
+        help="каталог с векторным индексом (по умолчанию: output/vector_index)",
+    )
+    vector_search_parser.add_argument(
+        "--index",
+        default="output/index.txt",
+        help="путь к index.txt (filename<TAB>url, по умолчанию: output/index.txt)",
+    )
+
     return parser
 
 
@@ -208,6 +341,8 @@ def main() -> int:
         "search": _cmd_search,
         "tfidf": _cmd_tfidf,
         "build-vector-index": _cmd_build_vector_index,
+        "vector-index": _cmd_vector_index,
+        "vector-search": _cmd_vector_search,
     }
     handler = handlers[args.command]
     return handler(args)
