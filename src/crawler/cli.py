@@ -9,6 +9,7 @@ from .text_processing import analyze as analyze_text
 from .boolean_search import build_index as build_inverted_index
 from .boolean_search import search as search_inverted_index
 from .tfidf import build_tfidf_for_corpus as build_tfidf_corpus
+from .vector_search import build_vector_index as build_vector_search_index
 
 
 def _cmd_run(args: argparse.Namespace) -> int:
@@ -81,8 +82,27 @@ def _cmd_tfidf(args: argparse.Namespace) -> int:
     )
 
 
+def _cmd_build_vector_index(args: argparse.Namespace) -> int:
+    """Подкоманда build-vector-index: построение и сохранение векторного индекса по TF-IDF."""
+    tfidf_dir = Path(args.tfidf)
+    out_dir = Path(args.out)
+
+    print(f"build-vector-index: tfidf_dir = {tfidf_dir}")
+    print(f"build-vector-index: out_dir   = {out_dir}")
+    try:
+        payload = build_vector_search_index(tfidf_dir=tfidf_dir, index_dir=out_dir)
+    except ValueError as e:
+        print(f"build-vector-index: {e}", file=sys.stderr)
+        return 1
+
+    doc_vectors = payload.get("doc_vectors", {})
+    print(f"build-vector-index: indexed documents = {len(doc_vectors) if isinstance(doc_vectors, dict) else 0}")
+    print(f"build-vector-index: index file = {out_dir / 'vector_index.json'}")
+    return 0
+
+
 def _build_parser() -> argparse.ArgumentParser:
-    """Собирает парсер с подкомандами run, validate, package, analyze, build-index, search, tfidf."""
+    """Собирает парсер с подкомандами run, validate, package, analyze, build-index, search, tfidf, build-vector-index."""
     parser = argparse.ArgumentParser(
         prog="crawler",
         description="CLI для краулера.",
@@ -153,6 +173,21 @@ def _build_parser() -> argparse.ArgumentParser:
         help="каталог для TF-IDF файлов (tfidf_terms_<id>.txt, tfidf_lemmas_<id>.txt, по умолчанию: output/tfidf)",
     )
 
+    vector_index_parser = subparsers.add_parser(
+        "build-vector-index",
+        help="построить и сохранить векторный индекс по готовым TF-IDF файлам",
+    )
+    vector_index_parser.add_argument(
+        "--tfidf",
+        default="output/tfidf",
+        help="каталог с TF-IDF файлами (tfidf_lemmas_<id>.txt, по умолчанию: output/tfidf)",
+    )
+    vector_index_parser.add_argument(
+        "--out",
+        default="output/vector_index",
+        help="каталог для сохранения векторного индекса (по умолчанию: output/vector_index)",
+    )
+
     return parser
 
 
@@ -172,6 +207,7 @@ def main() -> int:
         "build-index": _cmd_build_index,
         "search": _cmd_search,
         "tfidf": _cmd_tfidf,
+        "build-vector-index": _cmd_build_vector_index,
     }
     handler = handlers[args.command]
     return handler(args)
